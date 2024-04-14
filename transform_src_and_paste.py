@@ -21,7 +21,7 @@ def apply_transformation_to_image(image, R, scale, translation):
     return transformed_image
 
 
-def overlay_images(image_1, image_2, dest_box):
+def overlay_images(image_1, image_2, dest_box, exclude_padding=2):
     """
     Alpha blends image_2 into a rotated bounding box of image_1 with a gradient alpha from center to edges.
 
@@ -39,7 +39,10 @@ def overlay_images(image_1, image_2, dest_box):
 
     # Define the source points from the dimensions of image_2
     h, w = image_2.shape[:2]
-    src_points = np.array([[0, h], [w, h], [w, 0], [0, 0]], dtype=np.float32)
+    src_points = np.array([[exclude_padding, h-exclude_padding],
+                           [w - exclude_padding, h - exclude_padding],
+                           [w - exclude_padding, exclude_padding],
+                           [exclude_padding, exclude_padding]], dtype=np.float32)
 
     # Compute the perspective transform matrix
     matrix = cv2.getPerspectiveTransform(src_points, dest_box)
@@ -55,7 +58,7 @@ def overlay_images(image_1, image_2, dest_box):
     center_x, center_y = np.mean(dest_box[:, 0]), np.mean(dest_box[:, 1])
     Y, X = np.ogrid[:image_1.shape[0], :image_1.shape[1]]
     dist_from_center = np.sqrt((X - center_x)**2 + (Y - center_y)**2)
-    max_dist = np.max(dist_from_center)/6
+    max_dist = np.max(dist_from_center)/7
     gradient_mask = np.clip(1 - np.power(dist_from_center / max_dist, 3), 0, 1)
 
     # Use the gradient mask to blend the transformed image and the mask
@@ -72,43 +75,53 @@ def overlay_images(image_1, image_2, dest_box):
 def main():
     # In this case we assume the rectangular region to paste back is axis aligned into the destination frame.
     # We won't compute the rotation or scale!
-    aligned_pasete  = True
+    aligned_paste = True
+    # aligned_paste = False
     # source = 'acharjo_neurCG'
-    source = 'tight_crop_for_ipman'
+    source = 'ipman_kf'
     destination = 'life-scn-ch4-v2'
-    source_landmarks = pd.read_csv(f'{source}.csv')
+    if aligned_paste:
+        source_landmarks = pd.read_csv(f'{source}_src_kpt.csv')
+    else:
+        source_landmarks = pd.read_csv(f'{source}.csv')
+
     source_landmarks.sort_values(by='Image', ascending=True, inplace=True)
     dest_landmarks = pd.read_csv(f'{destination}.csv')
     dest_landmarks.sort_values(by='Image', ascending=True, inplace=True)
 
-    for i, (index, row1) in enumerate(tqdm.tqdm(source_landmarks.iterrows())):
+    for i, (index, row_src_csv) in enumerate(tqdm.tqdm(source_landmarks.iterrows())):
         row2 = dest_landmarks.iloc[i]
 
-        if aligned_pasete:
+        if aligned_paste:
             R = np.eye(2)
             scale = 1.0
-            translation = parse_landmarks(row1['Bounding_Box'])[0][:2]
+            translation = parse_landmarks(row_src_csv['Bounding_Box'])[0][:2]
         else:
             # Compute tehrelative transform necessary
-            source_lm = parse_landmarks(row1['Landmarks'])
+            source_lm = parse_landmarks(row_src_csv['Landmarks'])
             dest_lm = parse_landmarks(row2['Landmarks'])
 
             transform = transform_s2dest(source_lm, dest_lm)
             R, scale, translation = transform['rotation'], transform['scale'], transform['translation']
 
         # Read images
-        image1_path = os.path.join(source, row1['Image'])
-        image2_path = os.path.join(destination, row2['Image'])
-        image1 = cv2.imread(image1_path)
-        image2 = cv2.imread(image2_path)
+        # src_image_path = os.path.join(source, row_src_csv['Image'])
+        src_image_path = os.path.join(source, f'frame_{(i+1):04d}.png')
+        dest_image_path = os.path.join(destination, row2['Image'])
+        src_image = cv2.imread(src_image_path)
+        dest_image = cv2.imread(dest_image_path)
 
-        h, w = image1.shape[:2]
-        dest_box = np.array([[0, h], [w, h], [w, 0], [0, 0]], dtype=np.float32)
+        h, w = src_image.shape[:2]
+        exclude_padding = 2  #px
+        dest_box = np.array([[exclude_padding, h - exclude_padding],
+                             [w - exclude_padding, h - exclude_padding],
+                             [w - exclude_padding, exclude_padding],
+                             [exclude_padding, exclude_padding]], dtype=np.float32)
         dest_box = apply_transformation(dest_box, R, scale, translation)
-        final_image = overlay_images(image2, image1, dest_box)
-        # final_image = draw_rotated_box(image2, dest_box)
+        final_image = overlay_images(dest_image, src_image, dest_box, exclude_padding)
+        # final_image = draw_rotated_box(dest_image, dest_box)
         # final_image = draw_points(final_image, dest_lm)
-        output_path = os.path.join('NeurCG_fullbody', row1['Image'])
+        output_path = os.path.join('NeurCG_fullbody_kf', row_src_csv['Image'])
         cv2.imwrite(output_path, final_image)
         # plt.imshow(final_image[:, :, ::-1])
         # plt.show()
