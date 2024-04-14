@@ -81,12 +81,12 @@ def main():
     source = 'ipman_kf'
     destination = 'life-scn-ch4-v2'
     if aligned_paste:
-        source_landmarks = pd.read_csv(f'{source}_src_kpt.csv')
+        source_landmarks = pd.read_csv(f'data/crops/ipman_kf/{source}_src_kpt.csv')
     else:
-        source_landmarks = pd.read_csv(f'{source}.csv')
+        source_landmarks = pd.read_csv(f'data/crops/ipman_kf/{source}.csv')
 
     source_landmarks.sort_values(by='Image', ascending=True, inplace=True)
-    dest_landmarks = pd.read_csv(f'{destination}.csv')
+    dest_landmarks = pd.read_csv(f'data/original_src_vid/{destination}.csv')
     dest_landmarks.sort_values(by='Image', ascending=True, inplace=True)
 
     for i, (index, row_src_csv) in enumerate(tqdm.tqdm(source_landmarks.iterrows())):
@@ -106,8 +106,8 @@ def main():
 
         # Read images
         # src_image_path = os.path.join(source, row_src_csv['Image'])
-        src_image_path = os.path.join(source, f'frame_{(i+1):04d}.png')
-        dest_image_path = os.path.join(destination, row2['Image'])
+        src_image_path = f'data/crops/ipman_kf/{source}_better_lipsync/frames_from_kamil/frame_{(i+1):04d}.png'
+        dest_image_path = os.path.join(f'data/original_src_vid/{destination}', row2['Image'])
         src_image = cv2.imread(src_image_path)
         dest_image = cv2.imread(dest_image_path)
 
@@ -121,7 +121,7 @@ def main():
         final_image = overlay_images(dest_image, src_image, dest_box, exclude_padding)
         # final_image = draw_rotated_box(dest_image, dest_box)
         # final_image = draw_points(final_image, dest_lm)
-        output_path = os.path.join('NeurCG_fullbody_kf', row_src_csv['Image'])
+        output_path = os.path.join('data/outputs/NeurCG_fullbody_kf', row_src_csv['Image'])
         cv2.imwrite(output_path, final_image)
         # plt.imshow(final_image[:, :, ::-1])
         # plt.show()

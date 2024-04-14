@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set the directory containing the frames
-frame_dir="./NeurCG_fullbody_kf"
+frame_dir="./data/outputs/NeurCG_fullbody_kf"
 
 # Initialize a counter
 counter=0
@@ -22,4 +22,4 @@ done
 
 echo "Renaming complete. Files are renamed sequentially from frame_0000.png onwards."
 
-ffmpeg -framerate 25 -i "$frame_dir/frame_%04d.png" -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p "$frame_dir/../NeurCG_full_body_kf.mp4"
+ffmpeg -framerate 25 -i "$frame_dir/frame_%04d.png" -i "data/crops/ipman_kf/ipman_kf_better_lipsync/audio.mp3" -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p -c:a aac -
